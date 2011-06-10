@@ -181,20 +181,26 @@ class EventDescription
 	 * 
 	 * @var string
 	 */
-	static private $_descriptionColor;
-
+	private $_descriptionColor;
+	
+	/**
+	 * Initializes description
+	 * 
+	 * @param string $descriptionText
+	 * @param string $descriptionColor 
+	 */
 	public function __construct($descriptionText = null, $descriptionColor = null)
 	{
 		$this->_descriptionText = $descriptionText;
 
 		if(empty($descriptionColor))
 		{
-			self::$_descriptionColor = self::DEFAULT_COLOR;
+			$this->_descriptionColor = self::DEFAULT_COLOR;
 		}
 		else
 		{
 			$this->_checkColor($descriptionColor);
-			self::$_descriptionColor = $descriptionColor;
+			$this->_descriptionColor = $descriptionColor;
 		}
 	}
 
@@ -211,18 +217,6 @@ class EventDescription
 		{
 			throw new FatalException('Color "' . $colorValue . '" must be a 6 digit hexadecimal XXXXXX');
 		}
-	}
-
-	/**
-	 * Sets color for description class
-	 * 
-	 * @param string $color 
-	 * 
-	 * Must be a 6 digit, hexadecimal number
-	 */
-	static public function setDefaultColor($color)
-	{
-		self::$_descriptionColor = $color;
 	}
 
 	/**
@@ -276,7 +270,7 @@ class EventDescription
 	 */
 	public function getColor()
 	{
-		return self::$_descriptionColor;
+		return $this->_descriptionColor;
 	}
 
 	/**
@@ -446,6 +440,29 @@ class BaseEvent implements Event
 
 }
 
+class CacheEvent extends BaseEvent
+{
+	const COLOR = '00ff00';
+	/**
+	 * Overriden setter of the description with a custom set color
+	 * 
+	 * @param mixed $description 
+	 */
+	public function setEndpoint($description = null)
+	{
+		if(is_array($description))
+		{
+			$description[1] = self::COLOR;
+		}
+		else
+		{
+			$description = array($description, self::COLOR);
+		}
+		parent::setEndpoint($description);
+	}
+
+}
+
 /**
  * Represents the stack whick holds all events in a profiler
  * 
@@ -457,12 +474,12 @@ class EventStack implements \Iterator
 	 * Determines iteration start point
 	 */
 	const ITERATION_START = 1;
-	
+
 	/**
 	 * Determines stack start key 
 	 */
 	const STACK_START = 0;
-	
+
 	/**
 	 * Key-value container for Event Objects
 	 * 
@@ -578,9 +595,21 @@ $stack->push(new BaseEvent());
 sleep(1);
 $stack->getTopItem()->setEndpoint(array('jakis opis', '666666'));
 
-foreach ( $stack as $e )
+$stack->push(new BaseEvent());
+sleep(1);
+$stack->getTopItem()->setEndpoint(array('jakis inny event', '666666'));
+
+$stack->push(new CacheEvent());
+sleep(1);
+$stack->getTopItem()->setEndpoint('jakis opis');
+
+foreach ( $stack as $ev )
 {
-	echo $e->getTimeDuration() . ' - <span style="color:#' . $e->getDescription()->getColor() . '">' . $e->getDescription()->getText() . '</span>';
+	echo '<p style="color:#' . $ev->getDescription()->getColor() . '">Event: ' . $ev->getDescription();
+	echo '<br />start - ' . $ev->getStartMicrotime();
+	echo '<br />end - ' . $ev->getEndMicrotime();
+	echo '<br />duration - ' . $ev->getTimeDuration();
+	echo '</p>';
 }
 
 
