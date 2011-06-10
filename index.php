@@ -2,6 +2,9 @@
 
 namespace AgileProfiler;
 
+error_reporting(E_ALL);
+ini_set('display_errors', true);
+
 class FatalException extends \LogicException
 {
 	public function __construct($message = '')
@@ -26,11 +29,12 @@ class Microtime
 
 	public function __construct()
 	{
-		$this->_microTimestamp = $this->_getCurrentMicrotime();
+		$this->_microTimestamp = microtime(true);
 	}
 
 	/**
 	 * Returns timestamp of object
+	 * 
 	 * @return int
 	 */
 	public function getValue()
@@ -38,21 +42,11 @@ class Microtime
 		return $this->_microTimestamp;
 	}
 
-	/**
-	 * Returns current microtime
-	 * 
-	 * @return int 
-	 */
-	private function _getCurrentMicrotime()
+	public function __toString()
 	{
-		list($usec, $sec) = explode(" ", microtime());
-		return ((float) $usec + (float) $sec);
+		return (string) $this->_microTimestamp;
 	}
-	
-	public function __toString(){
-		return (string)$this->_microTimestamp;
-	}
-	
+
 }
 
 /**
@@ -122,17 +116,18 @@ class TimeDuration
 	 */
 	protected function _calculateDuration()
 	{
-		$this->_durationInSecs = $this->_endMicrotime->getValue() - $this->_startMicrotime->getValue();		
+		$this->_durationInSecs = $this->_endMicrotime->getValue() - $this->_startMicrotime->getValue();
 	}
-	
+
 	/**
 	 * Enforces ad returs the set precision on the calculated durationInSecs
 	 * @return float
 	 */
-	protected function _getPrecisionDuration(){
+	protected function _getPrecisionDuration()
+	{
 		return round($this->_durationInSecs, self::$_precision);
 	}
-	
+
 	/**
 	 * Check the correct order of Microtime objects
 	 * 
@@ -145,16 +140,17 @@ class TimeDuration
 			throw new FatalException('One of the timestamps appears to have been added the wrong way.');
 		}
 	}
-	
+
 	/**
 	 * Returns the calculated microtime duration in secs
 	 * 
 	 * @return float
 	 */
-	public function getValue(){
+	public function getValue()
+	{
 		return $this->_getPrecisionDuration();
 	}
-	
+
 	/**
 	 * Returs theduration value as string
 	 * 
@@ -180,7 +176,6 @@ class EventDescription
 	 * @var string
 	 */
 	private $_descriptionText;
-	
 	/**
 	 * Description color hash 
 	 * 
@@ -217,7 +212,7 @@ class EventDescription
 			throw new FatalException('Color "' . $colorValue . '" must be a 6 digit hexadecimal XXXXXX');
 		}
 	}
-	
+
 	/**
 	 * Sets color for description class
 	 * 
@@ -225,7 +220,8 @@ class EventDescription
 	 * 
 	 * Must be a 6 digit, hexadecimal number
 	 */
-	static public function setDefaultColor($color){
+	static public function setDefaultColor($color)
+	{
 		self::$_descriptionColor = $color;
 	}
 
@@ -257,16 +253,17 @@ class EventDescription
 
 		return new EventDescription();
 	}
-	
+
 	/**
 	 * Descripton text accessor
 	 * 
 	 * @return string
 	 */
-	public function getText(){
+	public function getText()
+	{
 		return $this->_descriptionText;
 	}
-	
+
 	/**
 	 * Description color accessor
 	 * 
@@ -277,17 +274,19 @@ class EventDescription
 	 * 0A2B77
 	 * 000000
 	 */
-	public function getColor(){
+	public function getColor()
+	{
 		return self::$_descriptionColor;
 	}
+
 	/**
 	 * Returns the description text only
 	 * @return string
 	 */
-	public function __toString(){
+	public function __toString()
+	{
 		return (string) $this->_descriptionText;
 	}
-	
 
 }
 
@@ -296,28 +295,25 @@ class EventDescription
  * 
  * @author Piotr Jasiulewicz
  */
-interface Event {
+interface Event
+{
 	/**
 	 * Sets event endpoint with optional description
 	 * @param string $description
 	 */
 	function setEndpoint($description = null);
-	
 	/**
 	 * Returns Event's time duration
 	 */
 	function getTimeDuration();
-	
 	/**
 	 * Returns Eent's description
 	 */
 	function getDescription();
-	
 	/**
 	 * Returns Event's start time
 	 */
 	function getStartMicrotime();
-	
 	/**
 	 * Returns Events end time
 	 */
@@ -373,7 +369,7 @@ class BaseEvent implements Event
 	public function setEndpoint($description = null)
 	{
 		$this->_checkEndpointAlreadySet();
-		
+
 		$this->_endMicrotime = new Microtime();
 		if($description instanceof EventDescription)
 		{
@@ -384,15 +380,17 @@ class BaseEvent implements Event
 			$this->_description = EventDescription::getEventDescription($description);
 		}
 	}
-	
+
 	/**
 	 * Checks whether the Event hasn't been already closed
 	 * 
 	 * @throw FatalException if event has been already set
 	 */
-	protected function _checkEndpointAlreadySet(){
-		if(!empty($this->_endMicrotime)){
-			throw new FatalException('Endpoint has already been set at '.$this->_endMicrotime->getValue());
+	protected function _checkEndpointAlreadySet()
+	{
+		if(!empty($this->_endMicrotime))
+		{
+			throw new FatalException('Endpoint has already been set at ' . $this->_endMicrotime->getValue());
 		}
 	}
 
@@ -406,7 +404,7 @@ class BaseEvent implements Event
 			$this->_duration = new TimeDuration($this->_startMicrotime, $this->_endMicrotime);
 		}
 	}
-	
+
 	/**
 	 * Event duration Object accessor
 	 * 
@@ -417,32 +415,35 @@ class BaseEvent implements Event
 		$this->_setTimeDuration();
 		return $this->_duration;
 	}
-	
+
 	/**
 	 * Event's EventDesciption object accessor
 	 * @return EventDescription
 	 */
-	public function getDescription(){
+	public function getDescription()
+	{
 		return $this->_description;
 	}
-	
+
 	/**
 	 * Event's start Microtime object accessor
 	 * @return Microtime
 	 */
-	public function getStartMicrotime(){
+	public function getStartMicrotime()
+	{
 		return $this->_startMicrotime;
 	}
-	
+
 	/**
 	 * Event's end Microtime object accessor
 	 * 
 	 * @return Microtime
 	 */
-	public function getEndMicrotime(){
+	public function getEndMicrotime()
+	{
 		return $this->_endMicrotime;
 	}
-	
+
 }
 
 /**
@@ -450,89 +451,136 @@ class BaseEvent implements Event
  * 
  * @author Piotr Jasiulewicz
  */
-class EventStack implements \Iterator{
+class EventStack implements \Iterator
+{
+	/**
+	 * Determines iteration start point
+	 */
+	const ITERATION_START = 1;
 	
 	/**
+	 * Determines stack start key 
+	 */
+	const STACK_START = 0;
+	
+	/**
+	 * Key-value container for Event Objects
 	 * 
+	 * @var ArrayObject
 	 */
 	private $_eventStack;
-	
+
 	/**
-	 * 
+	 * Cosntructs and initializes the stack
 	 */
-	public function __construct(){
-		$this->_eventStack = new ArrayObject();
+	public function __construct()
+	{
+		$this->_eventStack = new \ArrayObject();
 	}
-	
+
 	/**
 	 * The actual number of events
 	 * @var int
 	 */
-	static private $_stackCounter = 0;
-	
+	static private $_stackCounter = self::STACK_START;
 	/**
 	 * Points to current iteration position
 	 * 
 	 * @var int
 	 */
-	protected $_iteratorPointer = 0;
-	
+	protected $_iteratorPointer = self::ITERATION_START;
+
 	/**
 	 * 
 	 */
-	public function push(Event $event){
+	public function push(Event $event)
+	{
 		$this->_eventStack[$this->_getIncrementedStackCounter()] = $event;
 	}
-	
+
 	/**
 	 * Gets the last added event from the stack
+	 * 
 	 * @return Event
 	 */
-	public function getTopEvent(){
+	public function getTopItem()
+	{
+
+		if(0 == $this->_eventStack->count())
+		{
+			throw new FatalException('Cannot end the event if the stack is empty');
+		}
+
 		return end($this->_eventStack);
 	}
-	
+
 	/**
 	 * Returns incremented internal couter
 	 * 
 	 * @return int
 	 */
-	protected function _getIncrementedStackCounter(){
-		return ++self::$_stackCounter;
+	protected function _getIncrementedStackCounter()
+	{
+		return++self::$_stackCounter;
 	}
-	
+
 	/**
 	 * Returns the currently iterated Event
 	 * 
 	 * @return Event
 	 */
-	public function current(){
+	public function current()
+	{
 		return $this->_eventStack[$this->_iteratorPointer];
 	}
-	
+
 	/**
 	 * Rewinds iterator position to start position
 	 */
-	public function rewind(){
-		$this->_iteratorPointer = 0;
+	public function rewind()
+	{
+		$this->_iteratorPointer = 1;
 	}
-	
+
 	/**
 	 * Returns current iterator pointer posiotion
 	 * 
 	 * @return int
 	 */
-	public function key(){
+	public function key()
+	{
 		return $this->_iteratorPointer;
 	}
-	
+
+	/**
+	 * Increments the iterator posiotion
+	 */
+	public function next()
+	{
+		++$this->_iteratorPointer;
+	}
+
+	/**
+	 * Returns true iv the element is set, to where the current iteration pointer points
+	 * false otherwise
+	 * 
+	 * @return boolean
+	 */
+	public function valid()
+	{
+		return isset($this->_eventStack[$this->_iteratorPointer]);
+	}
+
 }
 
-$e = new BaseEvent();
+$stack = new EventStack();
+$stack->push(new BaseEvent());
 sleep(1);
-$e->setEndpoint('some description');
-EventDescription::setDefaultColor('aa8877');
-echo $e->getTimeDuration(). ' - <span style="color:#'. $e->getDescription()->getColor().'">'. $e->getDescription()->getText().'</span>';
+$stack->getTopItem()->setEndpoint(array('jakis opis', '666666'));
 
-EventDescription::setDefaultColor('aaaa77');
-echo $e->getTimeDuration(). ' - <span style="color:#'. $e->getDescription()->getColor().'">'. $e->getDescription()->getText().'</span>';
+foreach ( $stack as $e )
+{
+	echo $e->getTimeDuration() . ' - <span style="color:#' . $e->getDescription()->getColor() . '">' . $e->getDescription()->getText() . '</span>';
+}
+
+
