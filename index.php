@@ -312,6 +312,10 @@ interface Event
 	 * Returns Events end time
 	 */
 	function getEndMicrotime();
+	/**
+	 * Indicates if event is stopped
+	 */
+	function isStopped();
 }
 
 /**
@@ -438,6 +442,16 @@ class BaseEvent implements Event
 		return $this->_endMicrotime;
 	}
 
+	/**
+	 * Returns TRUE if event has been stopped, false otherwise
+	 * 
+	 * @return boolean
+	 */
+	public function isStopped()
+	{
+		return empty($this->_endMicrotime) ? false : true;
+	}
+
 }
 
 class CacheEvent extends BaseEvent
@@ -464,14 +478,16 @@ class CacheEvent extends BaseEvent
 }
 
 /**
- * Tracable event adds 
+ * Traceable event adds 
  * the functionality to trace when the event has been started and stopped in the script
  * 
  * @autho Piotr Jasiulewicz
  */
-class TracableEvent extends BaseEvent
+class TraceableEvent extends BaseEvent
 {
-
+	
+	const TRACE_OFFSET = 4;
+	
 	/**
 	 * Holds the start Trace
 	 * @var Trace
@@ -488,7 +504,7 @@ class TracableEvent extends BaseEvent
 	 */
 	public function __construct()
 	{
-		$this->_eventTrace = new Trace();
+		$this->_eventStartTrace = new Trace(self::TRACE_OFFSET);
 		parent::__construct();
 	}
 
@@ -497,13 +513,14 @@ class TracableEvent extends BaseEvent
 	 */
 	public function setEndpoint($description = null)
 	{
-		$this->_eventEndTrace = new Trace();
+		$this->_eventEndTrace = new Trace(self::TRACE_OFFSET);
 		parent::setEndpoint($description);
 	}
 
 	/**
-	 *
-	 * @return type 
+	 * Returns event start trace object
+	 * 
+	 * @return Trace 
 	 */
 	public function getStartTrace()
 	{
@@ -511,8 +528,9 @@ class TracableEvent extends BaseEvent
 	}
 
 	/**
-	 *
-	 * @return type 
+	 * Returns events end trace object
+	 * 
+	 * @return Trace
 	 */
 	public function getEndTrace()
 	{
@@ -590,6 +608,24 @@ class EventStack implements \Iterator
 	}
 
 	/**
+	 * Returns the last set item that isn't stopped yet
+	 * 
+	 * @return Event
+	 */
+	public function getLastStartedItem()
+	{
+		for ( $iterator = $this->_eventStack->count(); $iterator >= self::ITERATION_START; $iterator-- )
+		{
+			if(!$this->_eventStack[$iterator]->isStopped())
+			{
+				return $this->_eventStack[$iterator];
+			}
+		}
+
+		throw new \RuntimeException('No not-stopped items to return');
+	}
+
+	/**
 	 * Returns incremented internal couter
 	 * 
 	 * @return int
@@ -651,54 +687,45 @@ class EventStack implements \Iterator
 /**
  * Trace class represents single trace event
  * 
- * Reinfoces the Composite pattern with multiple chained objects working as one
- * 
  * @author Piotr Jasiulewicz
  */
 class Trace
 {
-	const TRACE_START_DEPTH = 0;
+	const DEBUG_DUMP_OBJECTS = false;
 
-	const TRACE_END_DEPTH = 20;
+	protected $_callStack = null;
 
-	const TRACE_GET_OBJECT = false;
-
-	const TRACE_GET_ARGS = true;
-
-	protected $_file;
-	protected $_line;
-	protected $_function;
-	protected $_class;
-	protected $_type;
-	protected $_args;
-	protected $_childTrace = null;
-
-	public function __construct(Trace $trace = null)
+	public function __construct($offset = 0)
 	{
-		if(NULL !== $trace)
+		$this->_callStack = $this->_getCallStack($offset);
+	}
+
+	protected function _getCallStack($offset = 0)
+	{
+		$trace = debug_backtrace(self::DEBUG_DUMP_OBJECTS);
+		for ( $i = 0; $i <= $offset; $i++ )
 		{
-			$this->addTrace($trace);
+			array_shift($trace);
 		}
+		return $trace;
 	}
-
-	protected function getCurrentTrace()
-	{
-		$trace = debug_backtrace(self::TRACE_GET_OBJECT, self::TRACE_GET_ARGS);
-	}
-
-	protected function addTrace(Trace $trace)
-	{
-		$this->_childTrace = $trace;
+	
+	public function __toString(){
+		return var_export($this->_callStack, true);
 	}
 
 }
 
+/**
+ * Interface for the interanl profiler
+ * 
+ * @author Piotr Jasiulewicz
+ */
 interface ProfilerInterface
 {
 	function start();
 	function stop($description);
 	function getEventStack();
-	function shutdownFunction();
 }
 
 class NullProfiler implements ProfilerInterface
@@ -716,11 +743,6 @@ class NullProfiler implements ProfilerInterface
 	function getEventStack()
 	{
 		return new EventStack();
-	}
-
-	function shutdownFunction()
-	{
-		
 	}
 
 }
@@ -747,7 +769,7 @@ class Profiler implements ProfilerInterface
 	{
 		$this->_eventStack = new EventStack();
 		$this->_push($this->_createEvent());
-		$this->_eventStack->getTopItem()->setEndpoint(self::START_EVENT_DESCRIPTION_TEXT);
+		$this->_eventStack->getLastStartedItem()->setEndpoint(self::START_EVENT_DESCRIPTION_TEXT);
 	}
 
 	/**
@@ -800,9 +822,18 @@ class Profiler implements ProfilerInterface
 		$this->_push($this->_createEvent($eventClassName, $eventObjectArgs));
 	}
 
+	/**
+	 * Stops the event within the EventStack object
+	 * 
+	 * 
+	 * @param string/array $eventDescription 
+	 * 
+	 * Either a string description of the event or an array
+	 * for the description factory method ('description', 'color')
+	 */
 	public function stop($eventDescription = null)
 	{
-		$this->_eventStack->getTopItem()->setEndpoint($eventDescription);
+		$this->_eventStack->getLastStartedItem()->setEndpoint($eventDescription);
 	}
 
 	/**
@@ -812,21 +843,27 @@ class Profiler implements ProfilerInterface
 	{
 		return $this->_eventStack;
 	}
-	
-	public function shutdownFunction(){
-		
-	}
 
 }
 
-\AgileProfiler\Profiler::setEventClass('\AgileProfiler\TracableEvent');
+\AgileProfiler\Profiler::setEventClass('\AgileProfiler\TraceableEvent');
+function dupa()
+{
+	$p = new Profiler();
 
-$p = new Profiler();
+	$p->start();
+	usleep(200);
+	$p->start();
+	$p->start();
+	usleep(200);
+	$p->stop(array('bardziej wewnetrzny task', 'ff0000'));
+	usleep(200);
+	$p->stop(array('wewnetrzny task', '000000'));
+	$p->stop(array('zewnetrzny task', '00ff00'));
+	return $p;
+}
 
-$p->start();
-usleep(200);
-$p->stop(array('Jakis zmyslny opis', '00ff00'));
-
+$p = dupa();
 
 $stack = $p->getEventStack();
 
@@ -837,6 +874,8 @@ foreach ( $stack as $ev )
 	echo '<br />start - ' . $ev->getStartMicrotime();
 	echo '<br />end - ' . $ev->getEndMicrotime();
 	echo '<br />duration - ' . $ev->getTimeDuration();
+	var_dump($ev->getStartTrace());
+	var_dump($ev->getEndTrace());
 	echo '</p>';
 }
 
