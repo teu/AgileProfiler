@@ -1,0 +1,13 @@
+AgileProfiler v 0.1
+
+Profiling PHP code
+
+Features:
+
+- Profiling PHP code easily
+- Embedded events within events
+- Persisting over calls with different switchable storages
+- Traceable Events so you always know when what you profile
+- Doctrine 2 listener adapter
+- Nice HTML switchable decorator to round everything up nicely
+- Object oriented design to make adding features easy
