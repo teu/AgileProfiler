@@ -182,7 +182,7 @@ class EventDescription
 	 * @var string
 	 */
 	private $_descriptionColor;
-	
+
 	/**
 	 * Initializes description
 	 * 
@@ -464,6 +464,64 @@ class CacheEvent extends BaseEvent
 }
 
 /**
+ * Tracable event adds 
+ * the functionality to trace when the event has been started and stopped in the script
+ * 
+ * @autho Piotr Jasiulewicz
+ */
+class TracableEvent extends BaseEvent
+{
+
+	/**
+	 * Holds the start Trace
+	 * @var Trace
+	 */
+	private $_eventStartTrace;
+	/**
+	 * Holds the end Trace
+	 * @var Trace
+	 */
+	private $_eventEndTrace;
+
+	/**
+	 * Constructs the Event and creates the starting Trace
+	 */
+	public function __construct()
+	{
+		$this->_eventTrace = new Trace();
+		parent::__construct();
+	}
+
+	/**
+	 * Ends the event and sets the ending Trace
+	 */
+	public function setEndpoint($description = null)
+	{
+		$this->_eventEndTrace = new Trace();
+		parent::setEndpoint($description);
+	}
+
+	/**
+	 *
+	 * @return type 
+	 */
+	public function getStartTrace()
+	{
+		return $this->_eventStartTrace;
+	}
+
+	/**
+	 *
+	 * @return type 
+	 */
+	public function getEndTrace()
+	{
+		return $this->_eventStartTrace;
+	}
+
+}
+
+/**
  * Represents the stack whick holds all events in a profiler
  * 
  * @author Piotr Jasiulewicz
@@ -590,26 +648,195 @@ class EventStack implements \Iterator
 
 }
 
-$stack = new EventStack();
-$stack->push(new BaseEvent());
-sleep(1);
-$stack->getTopItem()->setEndpoint(array('jakis opis', '666666'));
+/**
+ * Trace class represents single trace event
+ * 
+ * Reinfoces the Composite pattern with multiple chained objects working as one
+ * 
+ * @author Piotr Jasiulewicz
+ */
+class Trace
+{
+	const TRACE_START_DEPTH = 0;
 
-$stack->push(new BaseEvent());
-sleep(1);
-$stack->getTopItem()->setEndpoint(array('jakis inny event', '666666'));
+	const TRACE_END_DEPTH = 20;
 
-$stack->push(new CacheEvent());
-sleep(1);
-$stack->getTopItem()->setEndpoint('jakis opis');
+	const TRACE_GET_OBJECT = false;
+
+	const TRACE_GET_ARGS = true;
+
+	protected $_file;
+	protected $_line;
+	protected $_function;
+	protected $_class;
+	protected $_type;
+	protected $_args;
+	protected $_childTrace = null;
+
+	public function __construct(Trace $trace = null)
+	{
+		if(NULL !== $trace)
+		{
+			$this->addTrace($trace);
+		}
+	}
+
+	protected function getCurrentTrace()
+	{
+		$trace = debug_backtrace(self::TRACE_GET_OBJECT, self::TRACE_GET_ARGS);
+	}
+
+	protected function addTrace(Trace $trace)
+	{
+		$this->_childTrace = $trace;
+	}
+
+}
+
+interface ProfilerInterface
+{
+	function start();
+	function stop($description);
+	function getEventStack();
+	function shutdownFunction();
+}
+
+class NullProfiler implements ProfilerInterface
+{
+	function start()
+	{
+		
+	}
+
+	function stop($description)
+	{
+		
+	}
+
+	function getEventStack()
+	{
+		return new EventStack();
+	}
+
+	function shutdownFunction()
+	{
+		
+	}
+
+}
+
+class Profiler implements ProfilerInterface
+{
+	const START_EVENT_DESCRIPTION_TEXT = 'Profiler start';
+
+	const DEFAULT_EVENT_CLASS = '\AgileProfiler\BaseEvent';
+
+	/**
+	 *
+	 * @var EventStack
+	 */
+	private $_eventStack = null;
+	private static $_eventClass = self::DEFAULT_EVENT_CLASS;
+
+	public function __construct()
+	{
+		$this->_initProfiler();
+	}
+
+	private function _initProfiler()
+	{
+		$this->_eventStack = new EventStack();
+		$this->_push($this->_createEvent());
+		$this->_eventStack->getTopItem()->setEndpoint(self::START_EVENT_DESCRIPTION_TEXT);
+	}
+
+	/**
+	 * Event class name accessor
+	 * @return string
+	 */
+	private function _getEventClass()
+	{
+		return self::$_eventClass;
+	}
+
+	/**
+	 * Set the default class name for Event object constuction
+	 * 
+	 * @param string $className 
+	 */
+	static public function setEventClass($className)
+	{
+		self::$_eventClass = $className;
+	}
+
+	private function _createEvent($eventClass = '', $eventArgs = null)
+	{
+		if('' == $eventClass)
+		{
+			$eventClass = $this->_getEventClass();
+		}
+		return new $eventClass($eventArgs);
+	}
+
+	private function _push(Event $newEvent)
+	{
+		$this->_eventStack->push($newEvent);
+	}
+
+	/**
+	 * Starts a new event (has to be stopped)
+	 * 
+	 * @param type $eventClassName [optional]
+	 * 
+	 * There is a possibility to provide a seperate Xvent class
+	 * for every event occurance
+	 * 
+	 * @param type $eventObjectArgs [optional]
+	 * 
+	 * Custom class arguments
+	 */
+	public function start($eventClassName = '', $eventObjectArgs = null)
+	{
+		$this->_push($this->_createEvent($eventClassName, $eventObjectArgs));
+	}
+
+	public function stop($eventDescription = null)
+	{
+		$this->_eventStack->getTopItem()->setEndpoint($eventDescription);
+	}
+
+	/**
+	 * @return EventStack
+	 */
+	public function getEventStack()
+	{
+		return $this->_eventStack;
+	}
+	
+	public function shutdownFunction(){
+		
+	}
+
+}
+
+\AgileProfiler\Profiler::setEventClass('\AgileProfiler\TracableEvent');
+
+$p = new Profiler();
+
+$p->start();
+usleep(200);
+$p->stop(array('Jakis zmyslny opis', '00ff00'));
+
+
+$stack = $p->getEventStack();
 
 foreach ( $stack as $ev )
 {
+	echo get_class($ev);
 	echo '<p style="color:#' . $ev->getDescription()->getColor() . '">Event: ' . $ev->getDescription();
 	echo '<br />start - ' . $ev->getStartMicrotime();
 	echo '<br />end - ' . $ev->getEndMicrotime();
 	echo '<br />duration - ' . $ev->getTimeDuration();
 	echo '</p>';
 }
-
 
