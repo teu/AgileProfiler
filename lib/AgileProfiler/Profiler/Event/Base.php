@@ -70,6 +70,7 @@ class Base implements Event\Event
 		{
 			$this->_description = Event\Description::getEventDescription($description);
 		}
+		$this->_duration = new Time\Duration($this->_startMicrotime, $this->_endMicrotime);
 	}
 	
 	/**
