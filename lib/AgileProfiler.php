@@ -3,6 +3,8 @@
 /**
  * General utility class in Agile Profiler
  * 
+ * In a later version can be made into a proxy.
+ * 
  * @package AgileProfiler
  * 
  * @author Piotr Jasiulewicz
@@ -16,7 +18,7 @@ abstract class AgileProfiler
 	 */
 	public static function autoload($class)
 	{
-//Don't interfere with other autoloaders
+		//Don't interfere with other autoloaders
 		if(0 !== strpos($class, 'AgileProfiler'))
 		{
 			return false;
